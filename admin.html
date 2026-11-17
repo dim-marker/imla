@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Paneli - İmla Sistemi</title>
+    <!-- Barkod kitabxanası -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, get, set, update, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAtY4QyQqxm7uVL0-HzDQ0gWw43yXvp1lw",
+            authDomain: "chat-box-2c278.firebaseapp.com",
+            databaseURL: "https://chat-box-2c278-default-rtdb.firebaseio.com",
+            projectId: "chat-box-2c278",
+            storageBucket: "chat-box-2c278.firebasestorage.app",
+            messagingSenderId: "536978839640",
+            appId: "1:536978839640:web:f4041de99baa536f15922d",
+            measurementId: "G-PLDT605LPJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        window.fbDB = { db, ref, get, set, update, runTransaction };
+        window.initAdminApp();
+    </script>
+
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-dark: #1557b0;
+            --success: #188038;
+            --danger: #d93025;
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --border: #dadce0;
+            --text: #202124;
+        }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: var(--text); }
+        .container { max-width: 1200px; margin: 0 auto 30px auto; }
+        
+        #adminLoginBox { max-width: 400px; margin: 80px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        #adminLoginBox h2 { color: var(--primary); margin-top: 0; text-align: center; }
+
+        .top-bar { background: var(--card); padding: 18px 25px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; border-left: 5px solid var(--primary); }
+        .top-bar h1 { margin: 0; font-size: 20px; color: var(--primary); }
+        
+        .tabs { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 18px; background: #e8eaed; border: none; border-radius: 8px 8px 0 0; font-size: 14px; font-weight: 600; cursor: pointer; color: #3c4043; transition: all 0.2s; }
+        .tab-btn.active { background: var(--card); color: var(--primary); box-shadow: 0 -2px 6px rgba(0,0,0,0.05); }
+
+        .panel { background: var(--card); padding: 25px; border-radius: 0 10px 10px 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); display: none; }
+        .panel.active { display: block; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+        textarea { width: 100%; height: 130px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-family: 'Times New Roman', serif; font-size: 15px; box-sizing: border-box; resize: vertical; }
+        input[type="text"], input[type="number"], input[type="password"] { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+        input[readonly] { background-color: #f8f9fa; color: #5f6368; font-weight: 600; }
+
+        .btn { padding: 10px 18px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-dark); }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: #3c4043; }
+        .btn-sm { padding: 6px 10px; font-size: 12px; }
+
+        .stats-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: #f8f9fa; border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center; }
+        .stat-card .num { font-size: 24px; font-weight: bold; color: var(--primary); }
+        .stat-card .lbl { font-size: 12px; color: #5f6368; margin-top: 4px; }
+
+        table.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.admin-table th, table.admin-table td { border: 1px solid var(--border); padding: 10px; text-align: left; vertical-align: top; }
+        table.admin-table th { background-color: #f1f3f4; font-weight: 600; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; background: #e8f0fe; color: #1967d2; margin: 2px; }
+        
+        .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-backdrop.show { display: flex; }
+        .modal-box { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 480px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .hidden { display: none !important; }
+
+        /* A4 Çap */
+        .sheets-header-info { max-width: 210mm; margin: 20px auto 10px auto; display: flex; justify-content: space-between; align-items: center; background: #e8f0fe; padding: 10px 15px; border-radius: 6px; color: #174ea6; font-size: 14px; font-weight: 600; }
+        .sheets-container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .a4-page { width: 210mm; height: 297mm; background: white; padding: 12mm 15mm; box-sizing: border-box; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+        .header-barcodes { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 5px; }
+        .barcode-box { text-align: center; }
+        .barcode-label { font-family: Arial; font-size: 10px; font-weight: bold; color: #444; margin-bottom: 2px; text-transform: uppercase; }
+        .barcode-box svg { max-height: 48px; display: block; margin: 0 auto; }
+        .text-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .text-table td { border: 1.5px solid #000; padding: 8px 10px; font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.35; text-align: justify; height: 62mm; }
+        .instruction-title { font-family: 'Times New Roman', serif; font-size: 11pt; font-weight: bold; margin: 6px 0; color: #000; }
+        .handwriting-table { width: 100%; border-collapse: collapse; flex-grow: 1; }
+        .handwriting-table tr { height: 7.2mm; }
+        .handwriting-table td { border-bottom: 1px solid #000; padding: 0; }
+        .handwriting-table tr:first-child td { border-top: 1px solid #000; }
+
+        @media print {
+            @page { size: A4 portrait; margin: 0; }
+            body { background: none; padding: 0; margin: 0; }
+            .container, .sheets-header-info, .modal-backdrop { display: none !important; }
+            .sheets-container { gap: 0; display: block; }
+            .a4-page { box-shadow: none; margin: 0; page-break-after: always; break-after: page; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ADMIN LOGIN -->
+    <div id="adminLoginBox">
+        <h2>🛠️ Admin Girişi</h2>
+        <div class="form-group"><label>İstifadəçi adı:</label><input type="text" id="adminUser" value="admin"></div>
+        <div class="form-group"><label>Şifrə:</label><input type="password" id="adminPass" value="admin123"></div>
+        <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="checkAdminLogin()">Daxil Ol</button>
+        <div id="adminLoginErr" style="color:var(--danger); font-size: 13px; text-align: center; margin-top: 10px;"></div>
+    </div>
+
+    <!-- ƏSAS PANEL -->
+    <div class="container hidden" id="adminMainContainer">
+        <div class="top-bar">
+            <div>
+                <h1>Admin İdarəetmə Paneli</h1>
+                <div style="font-size: 13px; color: #5f6368;" id="dbStatus">Baza qoşulur...</div>
+            </div>
+            <div><button class="btn btn-danger btn-sm" onclick="adminLogout()">Çıxış</button></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('new')">➕ Yeni Mətn və Çap</button>
+            <button class="tab-btn" onclick="switchTab('texts')">📊 Mətnlər Bazası</button>
+            <button class="tab-btn" onclick="switchTab('students')">🎓 Tələbələr Bazası</button>
+            <button class="tab-btn" onclick="switchTab('assigned')">📋 Paylanmış Vərəqlər</button>
+            <button class="tab-btn" onclick="switchTab('users')">👮‍♂️ Nəzarətçi Hesabları</button>
+        </div>
+
+        <!-- TAB 1: YENİ MƏTN -->
+        <div class="panel active" id="panelNew">
+            <div class="form-group">
+                <label>Mətni daxil edin (Maksimum 180 söz):</label>
+                <textarea id="sourceText" placeholder="Mətni daxil edin..."></textarea>
+                <div style="font-size: 13px; color: #555; margin-top: 5px;" id="wordCounter">Söz sayı: 0 / 180</div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                <div><label>Növbəti Mətn Kodu:</label><input type="text" id="nextTextCode" readonly></div>
+                <div><label>Vərəq ID Aralığı:</label><input type="text" id="nextSheetRange" readonly></div>
+                <div><label>Çap ediləcək vərəq sayı:</label><input type="number" id="pageCount" value="1" min="1" max="1000" oninput="updatePreviewCodes()"></div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" onclick="createNewTextAndSheets()">✅ Bazaya Yaz və Vərəqləri Hazırla</button>
+                <button class="btn btn-success" onclick="window.print()">🖨️ Çap Et / PDF Saxla</button>
+            </div>
+        </div>
+
+        <!-- TAB 2: MƏTNLƏR BAZASI -->
+        <div class="panel" id="panelTexts">
+            <div class="stats-cards">
+                <div class="stat-card"><div class="num" id="statTextsCount">0</div><div class="lbl">Ümumi Mətn</div></div>
+                <div class="stat-card"><div class="num" id="statSheetsCount">0</div><div class="lbl">Ümumi Vərəq</div></div>
+            </div>
+            <table class="admin-table">
+                <thead><tr><th>Mətn Kodu</th><th>Mətn</th><th>Söz/Vərəq</th><th>Vərəq Aralığı</th><th>Əməliyyat</th></tr></thead>
+                <tbody id="textsTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- TAB 3: TƏLƏBƏLƏR BAZASI -->
+        <div class="panel" id="panelStudents">
+            <h3>🎓 Tələbələr Siyahısı (İmtahana Qatılanlar)</h3>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+                <h4>Yeni Tələbə Əlavə Et</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: flex-end;">
+                    <div><label>FİN Kod:</label><input type="text" id="stFin" placeholder="məs: 7ABC123"></div>
+                    <div><label>Soyad:</label><input type="text" id="stSoyad" placeholder="Məmmədov"></div>
+                    <div><label>Ad:</label><input type="text" id="stAd" placeholder="Elvin"></div>
+                    <div><label>Ata adı:</label><input type="text" id="stAta" placeholder="İlham"></div>
+                    <button class="btn btn-primary" onclick="addNewStudent()">Əlavə Et</button>
+                </div>
+            </div>
+            <table class="admin-table">
+                <thead><tr><th>FİN Kod</th><th>Soyadı, Adı, Ata adı</th><th>Əməliyyat</th></tr></thead>
+                <tbody id="studentsTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- TAB 4: PAYLANMIŞ VƏRƏQLƏR -->
+        <div class="panel" id="panelAssigned">
+            <h3>📋 Tələbələrə Verilmiş Vərəqlər (Nəzarətçi Qeydiyyatları)</h3>
+            <table class="admin-table">
+                <thead><tr><th>Vərəq ID</th><th>Mətn Kodu</th><th>Tələbə (FİN, Ad, Soyad)</th><th>Nəzarətçi</th><th>Tarix</th></tr></thead>
+                <tbody id="assignedTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- TAB 5: NƏZARƏÇİ HESABLARI -->
+        <div class="panel" id="panelUsers">
+            <h3>👮‍♂️ Nəzarətçi Hesabları İdarəetməsi</h3>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+                <h4>Yeni Nəzarətçi Əlavə Et</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: flex-end;">
+                    <div><label>İstifadəçi adı:</label><input type="text" id="newUsername" placeholder="məs: nezaretci1"></div>
+                    <div><label>Şifrə:</label><input type="text" id="newPassword" placeholder="şifrə daxil edin"></div>
+                    <button class="btn btn-primary" onclick="addNewUser()">Əlavə Et</button>
+                </div>
+            </div>
+            <table class="admin-table">
+                <thead><tr><th>İstifadəçi adı</th><th>Şifrə</th><th>Əməliyyat</th></tr></thead>
+                <tbody id="usersTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ÇAP ÜÇÜN HİSSƏ -->
+    <div class="sheets-header-info hidden" id="sheetsHeaderInfo">
+        <span id="activePrintSummary">Aktiv Çap Paketi</span>
+        <button class="btn btn-success btn-sm" onclick="window.print()">🖨️ Çap Et</button>
+    </div>
+    <div class="sheets-container" id="sheetsContainer"></div>
+
+    <!-- MODAL: ƏLAVƏ VƏRƏQ -->
+    <div class="modal-backdrop" id="addSheetsModal">
+        <div class="modal-box">
+            <h3>➕ Əlavə Vərəq Artır</h3>
+            <p id="addSheetsModalDesc" style="font-size: 13px; color: #555;"></p>
+            <input type="hidden" id="targetTextCodeForAdd">
+            <div class="form-group"><label>Əlavə vərəq sayı:</label><input type="number" id="extraPageCount" value="10" min="1"></div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn btn-outline" onclick="document.getElementById('addSheetsModal').classList.remove('show')">Ləğv et</button>
+                <button class="btn btn-primary" onclick="confirmAddExtraSheets()">Əlavə Et</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let globalData = {
+            config: { textPrefix: 'MTN-', nextTextSeq: 1001, sheetPrefix: 'VRQ-', nextSheetSeq: 10001, padLengthText: 4, padLengthSheet: 5 },
+            texts: {},
+            students: {},
+            users: { "nezaretci1": { password: "123" } },
+            registrations: {}
+        };
+
+        function checkAdminLogin() {
+            const u = document.getElementById('adminUser').value.trim();
+            const p = document.getElementById('adminPass').value.trim();
+            if (u === 'admin' && p === 'admin123') {
+                document.getElementById('adminLoginBox').classList.add('hidden');
+                document.getElementById('adminMainContainer').classList.remove('hidden');
+                loadFirebaseData();
+            } else {
+                document.getElementById('adminLoginErr').textContent = "Admin adı və ya şifrəsi yanlışdır!";
+            }
+        }
+
+        function adminLogout() {
+            document.getElementById('adminMainContainer').classList.add('hidden');
+            document.getElementById('adminLoginBox').classList.remove('hidden');
+        }
+
+        async function loadFirebaseData() {
+            const { db, ref, get } = window.fbDB;
+            const statusEl = document.getElementById('dbStatus');
+            try {
+                const snap = await get(ref(db, 'imlaApp'));
+                if (snap.exists()) {
+                    globalData = snap.val();
+                    if (!globalData.users) globalData.users = { "nezaretci1": { password: "123" } };
+                    if (!globalData.students) globalData.students = {};
+                    if (!globalData.registrations) globalData.registrations = {};
+                    statusEl.innerHTML = "Firebase bazasına uğurla qoşuldu ✅";
+                } else {
+                    await window.saveFullDataToFirebase();
+                    statusEl.innerHTML = "Firebase bazası yaradıldı ✅";
+                }
+                refreshAllUI();
+            } catch (err) {
+                statusEl.innerHTML = "Baza xətası: " + err.message;
+            }
+        }
+
+        window.saveFullDataToFirebase = async function() {
+            const { db, ref, set } = window.fbDB;
+            await set(ref(db, 'imlaApp'), globalData);
+        }
+
+        function refreshAllUI() {
+            updatePreviewCodes();
+            renderTextsTable();
+            renderStudentsTable();
+            renderAssignedTable();
+            renderUsersTable();
+        }
+
+        function formatTextCode(seq) { return globalData.config.textPrefix + String(seq).padStart(4, '0'); }
+        function formatSheetId(seq) { return globalData.config.sheetPrefix + String(seq).padStart(5, '0'); }
+
+        function updatePreviewCodes() {
+            const count = Math.max(1, parseInt(document.getElementById('pageCount').value) || 1);
+            document.getElementById('nextTextCode').value = formatTextCode(globalData.config.nextTextSeq);
+            const startId = formatSheetId(globalData.config.nextSheetSeq);
+            const endId = formatSheetId(globalData.config.nextSheetSeq + count - 1);
+            document.getElementById('nextSheetRange').value = count === 1 ? startId : `${startId} — ${endId}`;
+        }
+
+        const sourceTextArea = document.getElementById('sourceText');
+        sourceTextArea.addEventListener('input', () => {
+            const words = sourceTextArea.value.trim().split(/\s+/).filter(w => w.length > 0);
+            if (words.length > 180) {
+                sourceTextArea.value = words.slice(0, 180).join(' ');
+                document.getElementById('wordCounter').textContent = `Söz sayı: 180 / 180 (Mətn kəsildi!)`;
+                document.getElementById('wordCounter').style.color = 'var(--danger)';
+            } else {
+                document.getElementById('wordCounter').textContent = `Söz sayı: ${words.length} / 180`;
+                document.getElementById('wordCounter').style.color = '#555';
+            }
+        });
+
+        async function createNewTextAndSheets() {
+            const text = sourceTextArea.value.trim();
+            const count = text.split(/\s+/).filter(w => w.length > 0).length;
+            if (!text) { alert("Mətni daxil edin!"); return; }
+
+            const pageCount = Math.max(1, parseInt(document.getElementById('pageCount').value) || 1);
+            const { db, ref, runTransaction } = window.fbDB;
+
+            let generatedIds = [];
+            let assignedTextCode = "";
+
+            await runTransaction(ref(db, 'imlaApp'), (currentData) => {
+                if (!currentData) currentData = { config: globalData.config, texts: {}, students: {}, users: globalData.users, registrations: {} };
+                if (!currentData.texts) currentData.texts = {};
+
+                const tSeq = currentData.config.nextTextSeq || 1001;
+                assignedTextCode = currentData.config.textPrefix + String(tSeq).padStart(4, '0');
+                currentData.config.nextTextSeq = tSeq + 1;
+
+                const sSeq = currentData.config.nextSheetSeq || 10001;
+                generatedIds = [];
+                for (let i = 0; i < pageCount; i++) {
+                    generatedIds.push(currentData.config.sheetPrefix + String(sSeq + i).padStart(5, '0'));
+                }
+                currentData.config.nextSheetSeq = sSeq + pageCount;
+
+                const rangeLabel = pageCount === 1 ? generatedIds[0] : `${generatedIds[0]} .. ${generatedIds[generatedIds.length - 1]} (${pageCount} ədəd)`;
+
+                currentData.texts[assignedTextCode] = {
+                    textCode: assignedTextCode,
+                    content: text,
+                    wordCount: count,
+                    createdAt: new Date().toLocaleString('az-AZ'),
+                    batches: [{ date: new Date().toLocaleString('az-AZ'), rangeLabel, sheetIds: generatedIds }],
+                    allSheetIds: [...generatedIds]
+                };
+                return currentData;
+            });
+
+            await loadFirebaseData();
+            renderPrintableSheets(assignedTextCode, text, generatedIds);
+        }
+
+        // Tələbə idarəetməsi
+        async function addNewStudent() {
+            const fin = document.getElementById('stFin').value.trim().toUpperCase();
+            const soyad = document.getElementById('stSoyad').value.trim();
+            const ad = document.getElementById('stAd').value.trim();
+            const ata = document.getElementById('stAta').value.trim();
+
+            if (!fin || !soyad || !ad) {
+                alert("Zəhmət olmasa FİN, Soyad və Adı daxil edin!");
+                return;
+            }
+
+            if (!globalData.students) globalData.students = {};
+            globalData.students[fin] = { fin, soyad, ad, ataAdi: ata };
+
+            await window.saveFullDataToFirebase();
+            document.getElementById('stFin').value = '';
+            document.getElementById('stSoyad').value = '';
+            document.getElementById('stAd').value = '';
+            document.getElementById('stAta').value = '';
+            renderStudentsTable();
+            alert("Tələbə uğurla əlavə edildi!");
+        }
+
+        async function deleteStudent(fin) {
+            if (confirm(`Bu tələbəni silmək istədiyinizə əminsiniz?`)) {
+                delete globalData.students[fin];
+                await window.saveFullDataToFirebase();
+                renderStudentsTable();
+            }
+        }
+
+        function renderStudentsTable() {
+            const tbody = document.getElementById('studentsTableBody');
+            tbody.innerHTML = '';
+            const students = globalData.students || {};
+            const keys = Object.keys(students);
+
+            if (keys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Hələ tələbə əlavə olunmayıb.</td></tr>`;
+                return;
+            }
+
+            keys.forEach(fin => {
+                const s = students[fin];
+                tbody.innerHTML += `<tr>
+                    <td><b>${s.fin}</b></td>
+                    <td>${s.soyad} ${s.ad} ${s.ataAdi || ''}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="deleteStudent('${fin}')">Sil</button></td>
+                </tr>`;
+            });
+        }
+
+        function renderAssignedTable() {
+            const tbody = document.getElementById('assignedTableBody');
+            tbody.innerHTML = '';
+            const regs = Object.values(globalData.registrations || {});
+            if (regs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Hələ heç bir vərəq tələbəyə verilməyib.</td></tr>`;
+                return;
+            }
+            regs.reverse().forEach(r => {
+                tbody.innerHTML += `<tr>
+                    <td><b>${r.sheetId}</b></td>
+                    <td><span class="badge">${r.textCode}</span></td>
+                    <td><b>${r.studentName}</b></td>
+                    <td>${r.assignedBy || 'Bilinmir'}</td>
+                    <td>${r.assignedAt}</td>
+                </tr>`;
+            });
+        }
+
+        function renderTextsTable() {
+            const tbody = document.getElementById('textsTableBody');
+            tbody.innerHTML = '';
+            const texts = Object.values(globalData.texts || {});
+            document.getElementById('statTextsCount').textContent = texts.length;
+            const totalSheets = texts.reduce((sum, t) => sum + (t.allSheetIds ? t.allSheetIds.length : 0), 0);
+            document.getElementById('statSheetsCount').textContent = totalSheets;
+
+            if (texts.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Məlumat yoxdur.</td></tr>`;
+                return;
+            }
+
+            texts.forEach(item => {
+                const tr = document.createElement('tr');
+                let batches = (item.batches || []).map((b, idx) => `
+                    <div><span class="badge">${b.rangeLabel}</span> 
+                    <button class="btn btn-outline btn-sm" onclick="reprintSheets('${item.textCode}', ${idx})">🖨️</button></div>
+                `).join('');
+
+                tr.innerHTML = `
+                    <td><b>${item.textCode}</b></td>
+                    <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis;">${item.content}</td>
+                    <td><b>${item.wordCount}</b> söz<br><span style="color:var(--success);">${item.allSheetIds.length} vərəq</span></td>
+                    <td>${batches}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="openAddModal('${item.textCode}')">➕ Vərəq Artır</button>
+                        <button class="btn btn-success btn-sm" onclick="reprintSheets('${item.textCode}', -1)">🖨️ Hamısı</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderUsersTable() {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+            const users = globalData.users || {};
+            for (let uname in users) {
+                tbody.innerHTML += `<tr>
+                    <td><b>${uname}</b></td>
+                    <td>${users[uname].password}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="deleteUser('${uname}')">Sil</button></td>
+                </tr>`;
+            }
+        }
+
+        async function addNewUser() {
+            const u = document.getElementById('newUsername').value.trim();
+            const p = document.getElementById('newPassword').value.trim();
+            if (!u || !p) { alert("İstifadəçi adı və şifrə daxil edin!"); return; }
+            if (!globalData.users) globalData.users = {};
+            globalData.users[u] = { password: p };
+            await window.saveFullDataToFirebase();
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+            renderUsersTable();
+            alert("Nəzarətçi hesabı yaradıldı!");
+        }
+
+        async function deleteUser(uname) {
+            if (confirm(`"${uname}" hesabını silmək istədiyinizə əminsiniz?`)) {
+                delete globalData.users[uname];
+                await window.saveFullDataToFirebase();
+                renderUsersTable();
+            }
+        }
+
+        function openAddModal(textCode) {
+            document.getElementById('targetTextCodeForAdd').value = textCode;
+            document.getElementById('addSheetsModalDesc').textContent = `${textCode} kodlu mətnə yeni unikal vərəqlər əlavə ediləcək.`;
+            document.getElementById('addSheetsModal').classList.add('show');
+        }
+
+        async function confirmAddExtraSheets() {
+            const textCode = document.getElementById('targetTextCodeForAdd').value;
+            const extraCount = parseInt(document.getElementById('extraPageCount').value) || 1;
+            const { db, ref, get, update } = window.fbDB;
+
+            const snap = await get(ref(db, 'imlaApp'));
+            let dbData = snap.val();
+            let record = dbData.texts[textCode];
+            let sSeq = dbData.config.nextSheetSeq;
+
+            let newIds = [];
+            for (let i = 0; i < extraCount; i++) {
+                newIds.push(dbData.config.sheetPrefix + String(sSeq + i).padStart(5, '0'));
+            }
+            dbData.config.nextSheetSeq = sSeq + extraCount;
+
+            const rangeLabel = extraCount === 1 ? newIds[0] : `${newIds[0]} .. ${newIds[newIds.length - 1]} (${extraCount} ədəd)`;
+            record.batches.push({ date: new Date().toLocaleString('az-AZ'), rangeLabel, sheetIds: newIds });
+            record.allSheetIds.push(...newIds);
+
+            await update(ref(db, 'imlaApp'), dbData);
+            globalData = dbData;
+            document.getElementById('addSheetsModal').classList.remove('show');
+            refreshAllUI();
+            renderPrintableSheets(textCode, record.content, newIds);
+            alert(`${extraCount} yeni vərəq əlavə olundu!`);
+        }
+
+        function reprintSheets(textCode, batchIdx) {
+            const record = globalData.texts[textCode];
+            let ids = batchIdx === -1 ? record.allSheetIds : record.batches[batchIdx].sheetIds;
+            renderPrintableSheets(textCode, record.content, ids);
+            document.getElementById('sheetsHeaderInfo').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderPrintableSheets(textCode, textContent, sheetIds) {
+            const container = document.getElementById('sheetsContainer');
+            const headerInfo = document.getElementById('sheetsHeaderInfo');
+            container.innerHTML = '';
+            headerInfo.classList.remove('hidden');
+            document.getElementById('activePrintSummary').textContent = `Mətn: [${textCode}] | Vərəq sayı: ${sheetIds.length} (${sheetIds[0]} - ${sheetIds[sheetIds.length - 1]})`;
+
+            let rows = '';
+            for (let i = 0; i < 25; i++) rows += '<tr><td></td></tr>';
+
+            sheetIds.forEach((id, idx) => {
+                const page = document.createElement('div');
+                page.className = 'a4-page';
+                page.innerHTML = `
+                    <div>
+                        <div class="header-barcodes">
+                            <div class="barcode-box"><div class="barcode-label">Mətn Kodu</div><svg id="bc-t-${idx}"></svg></div>
+                            <div class="barcode-box"><div class="barcode-label">Vərəq ID</div><svg id="bc-s-${idx}"></svg></div>
+                        </div>
+                        <table class="text-table"><tr><td>${textContent}</td></tr></table>
+                        <div class="instruction-title">Verilmiş mətni səliqəli xətlə aşağıda yazın</div>
+                    </div>
+                    <table class="handwriting-table">${rows}</table>
+                `;
+                container.appendChild(page);
+                JsBarcode(`#bc-t-${idx}`, textCode, { format: "CODE128", width: 1.6, height: 36, displayValue: true, fontSize: 12, margin: 2 });
+                JsBarcode(`#bc-s-${idx}`, id, { format: "CODE128", width: 1.6, height: 36, displayValue: true, fontSize: 12, margin: 2 });
+            });
+        }
+
+        function switchTab(name) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            if (name === 'new') { document.getElementById('panelNew').classList.add('active'); event.target.classList.add('active'); }
+            else if (name === 'texts') { document.getElementById('panelTexts').classList.add('active'); event.target.classList.add('active'); }
+            else if (name === 'students') { document.getElementById('panelStudents').classList.add('active'); event.target.classList.add('active'); renderStudentsTable(); }
+            else if (name === 'assigned') { document.getElementById('panelAssigned').classList.add('active'); event.target.classList.add('active'); renderAssignedTable(); }
+            else if (name === 'users') { document.getElementById('panelUsers').classList.add('active'); event.target.classList.add('active'); renderUsersTable(); }
+        }
+    </script>
+</body>
+</html>

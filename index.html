@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nəzarətçi Paneli - Vərəq Paylanması</title>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAtY4QyQqxm7uVL0-HzDQ0gWw43yXvp1lw",
+            authDomain: "chat-box-2c278.firebaseapp.com",
+            databaseURL: "https://chat-box-2c278-default-rtdb.firebaseio.com",
+            projectId: "chat-box-2c278",
+            storageBucket: "chat-box-2c278.firebasestorage.app",
+            messagingSenderId: "536978839640",
+            appId: "1:536978839640:web:f4041de99baa536f15922d",
+            measurementId: "G-PLDT605LPJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        window.fbDB = { db, ref, get, update };
+        window.initIndexApp();
+    </script>
+    <!-- QR / Barkod skaner kitabxanası -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --success: #188038;
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --border: #dadce0;
+        }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #202124; }
+        .container { max-width: 650px; margin: 30px auto; background: var(--card); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: var(--primary); margin-top: 0; text-align: center; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+        input, select { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; background: var(--primary); color: white; transition: background 0.2s; }
+        .btn:hover { background: #1557b0; }
+        .btn-success { background: var(--success); }
+        .btn-success:hover { background: #13652b; }
+        .hidden { display: none !important; }
+        #reader { width: 100%; max-width: 400px; margin: 15px auto; border-radius: 8px; overflow: hidden; }
+        .log-box { background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid var(--border); margin-top: 15px; font-size: 13px; max-height: 180px; overflow-y: auto; }
+        .user-info-bar { display: flex; justify-content: space-between; align-items: center; background: #e8f0fe; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #174ea6; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- NƏZARƏÇİ GİRİŞİ -->
+        <div id="loginSection">
+            <h2>👮‍♂️ Nəzarətçi Girişi</h2>
+            <p style="text-align: center; color: #666; font-size: 13px;">Admin tərəfindən verilmiş məlumatlarla daxil olun.</p>
+            <div class="form-group">
+                <label>İstifadəçi adı:</label>
+                <input type="text" id="loginUser" placeholder="Məs: nezaretci1">
+            </div>
+            <div class="form-group">
+                <label>Şifrə:</label>
+                <input type="password" id="loginPass" placeholder="Şifrənizi daxil edin">
+            </div>
+            <button class="btn" onclick="handleLogin()">Giriş Et</button>
+            <div id="loginError" style="color: #d93025; font-size: 13px; text-align: center; margin-top: 10px;"></div>
+        </div>
+
+        <!-- VƏRƏQ PAYLAMA EKRANI -->
+        <div id="appSection" class="hidden">
+            <div class="user-info-bar">
+                <span id="welcomeUser">Nəzarətçi</span>
+                <button class="btn" style="width: auto; padding: 6px 12px; font-size: 12px; background: #d93025;" onclick="handleLogout()">Çıxış</button>
+            </div>
+
+            <h2>📝 Tələbəyə Vərəq Təyini</h2>
+
+            <div class="form-group">
+                <label>Tələbə Seçin (və ya FİN / Ad ilə axtarın):</label>
+                <select id="studentSelect">
+                    <option value="">-- Əvvəlcə tələbə seçin --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Vərəq ID (Barkod nömrəsi):</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="sheetIdInput" placeholder="Məs: VRQ-10001 və ya kamerayla skan edin">
+                    <button class="btn btn-success" style="width: auto;" onclick="toggleCameraScanner()">📷 Skan Et</button>
+                </div>
+            </div>
+
+            <!-- Kamera Skaneri -->
+            <div id="cameraContainer" class="hidden">
+                <div id="reader"></div>
+                <button class="btn" style="background: #d93025; margin-bottom: 10px;" onclick="stopCameraScanner()">Kameranı Bağla</button>
+            </div>
+
+            <button class="btn btn-success" onclick="assignSheetToStudent()">💾 Təsdiq Et və Qeydə Al</button>
+
+            <div class="log-box" id="recentLogs">
+                <b>Bu sessiyada edilən son təyinlər:</b>
+                <div id="logsContent" style="color: #555; margin-top: 4px;">Hələ ki qeydiyyat yoxdur.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dbData = null;
+        let currentUser = null;
+        let html5QrCode = null;
+        let sessionLogs = [];
+
+        window.initIndexApp = async function() {
+            const { db, ref, get } = window.fbDB;
+            try {
+                const snap = await get(ref(db, 'imlaApp'));
+                if (snap.exists()) {
+                    dbData = snap.val();
+                }
+            } catch (err) {
+                console.error("Baza oxunma xətası:", err);
+            }
+        }
+
+        async function handleLogin() {
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value.trim();
+            const errDiv = document.getElementById('loginError');
+
+            const { db, ref, get } = window.fbDB;
+            const snap = await get(ref(db, 'imlaApp'));
+            if (snap.exists()) {
+                dbData = snap.val();
+            }
+
+            const users = dbData.users || {};
+            if (users[u] && users[u].password === p) {
+                currentUser = u;
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('appSection').classList.remove('hidden');
+                document.getElementById('welcomeUser').textContent = `Nəzarətçi: ${u}`;
+                populateStudentDropdown();
+            } else {
+                errDiv.textContent = "İstifadəçi adı və ya şifrə yanlışdır!";
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            document.getElementById('appSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('loginUser').value = '';
+            document.getElementById('loginPass').value = '';
+            stopCameraScanner();
+        }
+
+        function populateStudentDropdown() {
+            const select = document.getElementById('studentSelect');
+            select.innerHTML = '<option value="">-- Tələbə seçin --</option>';
+            
+            const students = dbData.students || {};
+            for (let fin in students) {
+                const s = students[fin];
+                const opt = document.createElement('option');
+                opt.value = fin;
+                opt.textContent = `${s.fin} - ${s.soyad} ${s.ad} ${s.ataAdi}`;
+                select.appendChild(opt);
+            }
+        }
+
+        // Kamera Skaneri
+        function toggleCameraScanner() {
+            const camContainer = document.getElementById('cameraContainer');
+            if (camContainer.classList.contains('hidden')) {
+                camContainer.classList.remove('hidden');
+                startCameraScanner();
+            } else {
+                stopCameraScanner();
+            }
+        }
+
+        function startCameraScanner() {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 100 } },
+                (decodedText) => {
+                    document.getElementById('sheetIdInput').value = decodedText.trim().toUpperCase();
+                    stopCameraScanner();
+                    alert("Barkod oxundu: " + decodedText);
+                },
+                (errorMessage) => {}
+            ).catch((err) => {
+                alert("Kamera xətası: " + err);
+                stopCameraScanner();
+            });
+        }
+
+        function stopCameraScanner() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('cameraContainer').classList.add('hidden');
+                }).catch(err => console.error(err));
+            } else {
+                document.getElementById('cameraContainer').classList.add('hidden');
+            }
+        }
+
+        // Tələbəyə Vərəq Təyini
+        async function assignSheetToStudent() {
+            const fin = document.getElementById('studentSelect').value;
+            const sheetId = document.getElementById('sheetIdInput').value.trim().toUpperCase();
+
+            if (!fin || !sheetId) {
+                alert("Zəhmət olmasa tələbə seçin və vərəq ID-sini daxil edin (və ya skan edin)!");
+                return;
+            }
+
+            const { db, ref, get, update } = window.fbDB;
+            const snap = await get(ref(db, 'imlaApp'));
+            if (!snap.exists()) { alert("Baza tapılmadı!"); return; }
+
+            let data = snap.val();
+            let foundTextCode = null;
+
+            // Vərəqin hansı mətnə aid olduğunu yoxlayaq
+            let texts = data.texts || {};
+            for (let tCode in texts) {
+                let sheetIds = texts[tCode].allSheetIds || [];
+                if (sheetIds.includes(sheetId)) {
+                    foundTextCode = tCode;
+                    break;
+                }
+            }
+
+            if (!foundTextCode) {
+                alert(`Diqqət: "${sheetId}" ID-li vərəq bazada heç bir mətnə aid tapılmadı! Doğru barkodu skan etdiyinizdən əmin olun.`);
+                return;
+            }
+
+            if (!data.registrations) data.registrations = {};
+
+            const student = data.students[fin];
+            const studentFullName = `${student.soyad} ${student.ad} ${student.ataAdi} (FİN: ${fin})`;
+
+            data.registrations[sheetId] = {
+                sheetId: sheetId,
+                textCode: foundTextCode,
+                studentFin: fin,
+                studentName: studentFullName,
+                assignedBy: currentUser,
+                assignedAt: new Date().toLocaleString('az-AZ')
+            };
+
+            await update(ref(db, 'imlaApp'), data);
+            dbData = data;
+
+            alert(`Uğurla təyin edildi!\nTələbə: ${studentFullName}\nVərəq ID: ${sheetId} (${foundTextCode})`);
+            
+            sessionLogs.unshift(`<b>${student.soyad} ${student.ad}</b> -> ${sheetId} [${foundTextCode}]`);
+            document.getElementById('logsContent').innerHTML = sessionLogs.slice(0, 5).join('<br>');
+
+            document.getElementById('sheetIdInput').value = '';
+            document.getElementById('studentSelect').value = '';
+        }
+    </script>
+</body>
+</html>
