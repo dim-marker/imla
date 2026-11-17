@@ -456,6 +456,10 @@
                 return currentData;
             });
 
+            sourceTextArea.value = '';
+            document.getElementById('wordCounter').textContent = 'Söz sayı: 0 / 180';
+            document.getElementById('wordCounter').style.color = '#555';
+            
             await loadFirebaseData();
             renderPrintableSheets(assignedTextCode, text, generatedIds);
         }
