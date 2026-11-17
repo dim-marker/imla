@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İmla Vərəqi və Firebase Baza Sistemi</title>
+    <!-- Barkod kitabxanası -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <!-- Firebase SDK (v10 Modular) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, get, set, update, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // ==========================================
+        // BURAYA ÖZ FİRABASE PARAMETRLƏRİNİZİ QOYUN
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAtY4QyQqxm7uVL0-HzDQ0gWw43yXvp1lw",
+            authDomain: "chat-box-2c278.firebaseapp.com",
+            databaseURL: "https://chat-box-2c278-default-rtdb.firebaseio.com",
+            projectId: "chat-box-2c278",
+            storageBucket: "chat-box-2c278.firebasestorage.app",
+            messagingSenderId: "536978839640",
+            appId: "1:536978839640:web:f4041de99baa536f15922d",
+            measurementId: "G-PLDT605LPJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.fbDB = { db, ref, get, set, update, runTransaction };
+        window.initFirebaseApp();
+    </script>
+
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-dark: #1557b0;
+            --success: #188038;
+            --success-dark: #13652b;
+            --danger: #d93025;
+            --warning: #f29900;
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --border: #dadce0;
+            --text: #202124;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto 30px auto;
+        }
+
+        .top-bar {
+            background: var(--card);
+            padding: 18px 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            border-left: 5px solid var(--primary);
+        }
+
+        .top-bar h1 {
+            margin: 0;
+            font-size: 20px;
+            color: var(--primary);
+        }
+
+        .db-status {
+            font-size: 13px;
+            color: #5f6368;
+            margin-top: 4px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: #e8eaed;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #3c4043;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--card);
+            color: var(--primary);
+            box-shadow: 0 -2px 6px rgba(0,0,0,0.05);
+        }
+
+        .panel {
+            background: var(--card);
+            padding: 25px;
+            border-radius: 0 10px 10px 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 130px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 15px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        .word-counter {
+            font-size: 13px;
+            color: #555;
+            margin-top: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .word-counter.trimmed {
+            color: var(--danger);
+            font-weight: bold;
+        }
+
+        .controls-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        input[readonly] {
+            background-color: #f8f9fa;
+            color: #5f6368;
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-dark); }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-success:hover { background-color: var(--success-dark); }
+        .btn-outline { background: white; border: 1px solid var(--border); color: #3c4043; }
+        .btn-outline:hover { background: #f1f3f4; }
+        .btn-sm { padding: 6px 10px; font-size: 12px; }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .search-bar input {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-card .num {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .stat-card .lbl {
+            font-size: 12px;
+            color: #5f6368;
+            margin-top: 4px;
+        }
+
+        .data-table-wrapper {
+            overflow-x: auto;
+        }
+
+        table.admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        table.admin-table th, table.admin-table td {
+            border: 1px solid var(--border);
+            padding: 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        table.admin-table th {
+            background-color: #f1f3f4;
+            font-weight: 600;
+            color: #202124;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #e8f0fe;
+            color: #1967d2;
+            margin: 2px;
+        }
+
+        .text-preview {
+            max-width: 320px;
+            max-height: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            font-family: 'Times New Roman', serif;
+            font-size: 13px;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-backdrop.show {
+            display: flex;
+        }
+
+        .modal-box {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 480px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .modal-box h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        /* A4 Vərəq Stili */
+        .sheets-header-info {
+            max-width: 210mm;
+            margin: 20px auto 10px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #e8f0fe;
+            padding: 10px 15px;
+            border-radius: 6px;
+            color: #174ea6;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .sheets-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .a4-page {
+            width: 210mm;
+            height: 297mm;
+            background: white;
+            padding: 12mm 15mm;
+            box-sizing: border-box;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .header-barcodes {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 0 5px;
+        }
+
+        .barcode-box {
+            text-align: center;
+        }
+
+        .barcode-label {
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+            font-weight: bold;
+            color: #444;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        .barcode-box svg {
+            max-height: 48px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .text-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+        }
+
+        .text-table td {
+            border: 1.5px solid #000;
+            padding: 8px 10px;
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 11pt;
+            line-height: 1.35;
+            text-align: justify;
+            vertical-align: top;
+            height: 62mm;
+        }
+
+        .instruction-title {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 11pt;
+            font-weight: bold;
+            margin: 6px 0 6px 0;
+            color: #000;
+        }
+
+        .handwriting-table {
+            width: 100%;
+            border-collapse: collapse;
+            flex-grow: 1;
+        }
+
+        .handwriting-table tr {
+            height: 7.2mm;
+        }
+
+        .handwriting-table td {
+            border-bottom: 1px solid #000;
+            border-left: none;
+            border-right: none;
+            padding: 0;
+        }
+
+        .handwriting-table tr:first-child td {
+            border-top: 1px solid #000;
+        }
+
+        @media print {
+            @page { size: A4 portrait; margin: 0; }
+            body { background: none; padding: 0; margin: 0; }
+            .container, .sheets-header-info, .modal-backdrop { display: none !important; }
+            .sheets-container { gap: 0; display: block; }
+            .a4-page { box-shadow: none; margin: 0; page-break-after: always; break-after: page; }
+            .a4-page:last-child { page-break-after: auto; break-after: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="top-bar">
+            <div>
+                <h1>İmla Vərəqi və Firebase Mərkəzi Baza</h1>
+                <div class="db-status" id="dbStatusText">Firebase-ə qoşulur...</div>
+            </div>
+            <div>
+                <button class="btn btn-outline" onclick="openSetupModal()">⚙️ Baza Başlanğıc Ayarları</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" id="tabBtnNew" onclick="switchTab('new')">➕ Yeni Mətn və Çap</button>
+            <button class="tab-btn" id="tabBtnAdmin" onclick="switchTab('admin')">📊 Mətnlərin İdarə Paneli (Firebase)</button>
+        </div>
+
+        <!-- TAB 1 -->
+        <div class="panel active" id="panelNew">
+            <div class="form-group">
+                <label for="sourceText">Mətni daxil edin (180 sözdən çox olarsa avtomatik kəsiləcək):</label>
+                <textarea id="sourceText" placeholder="Mətni buraya yapışdırın..."></textarea>
+                <div class="word-counter" id="wordCounter">
+                    <span>Söz sayı: 0 / 180</span>
+                    <span id="trimWarning"></span>
+                </div>
+            </div>
+
+            <div class="controls-row">
+                <div>
+                    <label for="nextTextCode">Növbəti Unikal Mətn Kodu:</label>
+                    <input type="text" id="nextTextCode" readonly value="Yüklənir...">
+                </div>
+                <div>
+                    <label for="nextSheetRange">Veriləcək Vərəq ID Aralığı:</label>
+                    <input type="text" id="nextSheetRange" readonly value="Yüklənir...">
+                </div>
+                <div>
+                    <label for="pageCount">Çap ediləcək vərəq sayı:</label>
+                    <input type="number" id="pageCount" value="1" min="1" max="1000" oninput="updatePreviewCodes()">
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="createNewTextAndSheets()">✅ Bazaya Yaz və Vərəqləri Hazırla</button>
+                <button class="btn btn-success" onclick="window.print()">🖨️ Hazır Vərəqləri Çap Et / PDF Saxla</button>
+            </div>
+        </div>
+
+        <!-- TAB 2 -->
+        <div class="panel" id="panelAdmin">
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <div class="num" id="statTotalTexts">0</div>
+                    <div class="lbl">Ümumi Unikal Mətn</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num" id="statTotalSheets">0</div>
+                    <div class="lbl">Ümumi Çap Olunmuş Vərəq</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num" id="statLastSheetId">-</div>
+                    <div class="lbl">Sonuncu Vərəq ID</div>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="🔍 Mətn koduna, vərəq ID-sinə və ya mətnin içindəki sözə görə axtar..." oninput="renderAdminTable()">
+                <button class="btn btn-outline" onclick="document.getElementById('searchInput').value=''; renderAdminTable();">Təmizlə</button>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 110px;">Mətn Kodu</th>
+                            <th>Mətn (Vərəqdəki kimi - max 180 söz)</th>
+                            <th style="width: 80px;">Söz / Vərəq</th>
+                            <th style="width: 240px;">Əhatə Etdiyi Vərəq ID-ləri</th>
+                            <th style="width: 210px;">Əməliyyatlar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminTableBody">
+                        <tr><td colspan="5" style="text-align:center;">Firebase bazasından məlumatlar yüklənir...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="sheets-header-info" id="sheetsHeaderInfo" style="display:none;">
+        <span id="activePrintSummary">Hazırda çap üçün 0 vərəq göstərilir.</span>
+        <button class="btn btn-success btn-sm" onclick="window.print()">🖨️ PDF / Çap Et</button>
+    </div>
+
+    <div class="sheets-container" id="sheetsContainer"></div>
+
+    <!-- MODAL 1: AYARLAR -->
+    <div class="modal-backdrop" id="setupModal">
+        <div class="modal-box">
+            <h3>⚙️ Firebase Baza Başlanğıc Kodları</h3>
+            <p style="font-size: 13px; color: #555;">
+                Bu nömrələr mərkəzi bazada saxlanılır və hər dəfə avtomatik artır.
+            </p>
+            <div class="form-group">
+                <label>Mətn Kodu Prefiksi:</label>
+                <input type="text" id="cfgTextPrefix" value="MTN-">
+            </div>
+            <div class="form-group">
+                <label>Növbəti Mətn Sırası (Seqment):</label>
+                <input type="number" id="cfgTextSeq" value="1001" min="1">
+            </div>
+            <div class="form-group">
+                <label>Vərəq ID Prefiksi:</label>
+                <input type="text" id="cfgSheetPrefix" value="VRQ-">
+            </div>
+            <div class="form-group">
+                <label>Növbəti Vərəq Sırası (Seqment):</label>
+                <input type="number" id="cfgSheetSeq" value="10001" min="1">
+            </div>
+            <div class="btn-group" style="justify-content: flex-end;">
+                <button class="btn btn-outline" onclick="document.getElementById('setupModal').classList.remove('show')">Bağla</button>
+                <button class="btn btn-primary" onclick="saveFirebaseConfig()">Yadda Saxla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: ƏLAVƏ VƏRƏQ -->
+    <div class="modal-backdrop" id="addSheetsModal">
+        <div class="modal-box">
+            <h3>➕ Əlavə Vərəqlər Yarat və Çap Et</h3>
+            <p style="font-size: 13px; color: #555;" id="addSheetsModalDesc"></p>
+            <input type="hidden" id="targetTextCodeForAdd">
+            <div class="form-group">
+                <label>Neçə ədəd yeni unikal vərəq əlavə edilsin?</label>
+                <input type="number" id="extraPageCount" value="10" min="1" max="1000">
+            </div>
+            <div class="btn-group" style="justify-content: flex-end;">
+                <button class="btn btn-outline" onclick="closeAddSheetsModal()">Ləğv et</button>
+                <button class="btn btn-primary" onclick="confirmAddExtraSheets()">Əlavə Et və Hazırla</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let globalData = {
+            config: { textPrefix: 'MTN-', nextTextSeq: 1001, sheetPrefix: 'VRQ-', nextSheetSeq: 10001, padLengthText: 4, padLengthSheet: 5 },
+            texts: {}
+        };
+
+        window.initFirebaseApp = async function() {
+            const { db, ref, get } = window.fbDB;
+            const statusEl = document.getElementById('dbStatusText');
+            try {
+                const snapshot = await get(ref(db, 'imlaApp'));
+                if (snapshot.exists()) {
+                    globalData = snapshot.val();
+                    if (!globalData.texts) globalData.texts = {};
+                    statusEl.innerHTML = `Firebase bazasına qoşuldu ✅ | <b>${Object.keys(globalData.texts).length}</b> mətn mövcuddur.`;
+                } else {
+                    await window.saveFullDataToFirebase();
+                    statusEl.innerHTML = `Firebase bazası yaradıldı ✅`;
+                }
+                refreshAllUI();
+            } catch (err) {
+                statusEl.innerHTML = `Firebase qoşulma xətası: ${err.message}`;
+                console.error(err);
+            }
+        };
+
+        window.saveFullDataToFirebase = async function() {
+            const { db, ref, set } = window.fbDB;
+            await set(ref(db, 'imlaApp'), globalData);
+        }
+
+        function refreshAllUI() {
+            updatePreviewCodes();
+            renderAdminTable();
+        }
+
+        function formatTextCode(seq) {
+            return globalData.config.textPrefix + String(seq).padStart(globalData.config.padLengthText || 4, '0');
+        }
+
+        function formatSheetId(seq) {
+            return globalData.config.sheetPrefix + String(seq).padStart(globalData.config.padLengthSheet || 5, '0');
+        }
+
+        function updatePreviewCodes() {
+            const count = Math.max(1, parseInt(document.getElementById('pageCount').value) || 1);
+            document.getElementById('nextTextCode').value = formatTextCode(globalData.config.nextTextSeq);
+            
+            const startId = formatSheetId(globalData.config.nextSheetSeq);
+            const endId = formatSheetId(globalData.config.nextSheetSeq + count - 1);
+            document.getElementById('nextSheetRange').value = count === 1 ? startId : `${startId} — ${endId}`;
+        }
+
+        const sourceTextArea = document.getElementById('sourceText');
+        const wordCounterDiv = document.getElementById('wordCounter');
+        const trimWarningSpan = document.getElementById('trimWarning');
+
+        function enforceWordLimit() {
+            const rawText = sourceTextArea.value;
+            const words = rawText.trim().split(/\s+/).filter(w => w.length > 0);
+
+            if (words.length > 180) {
+                const trimmed = words.slice(0, 180).join(' ');
+                sourceTextArea.value = trimmed;
+                wordCounterDiv.classList.add('trimmed');
+                wordCounterDiv.firstElementChild.textContent = `Söz sayı: 180 / 180`;
+                trimWarningSpan.textContent = `Diqqət: Mətn 180 sözdən çox olduğu üçün avtomatik kəsildi!`;
+                return { text: trimmed, count: 180 };
+            } else {
+                wordCounterDiv.classList.remove('trimmed');
+                wordCounterDiv.firstElementChild.textContent = `Söz sayı: ${words.length} / 180`;
+                trimWarningSpan.textContent = ``;
+                return { text: rawText.trim(), count: words.length };
+            }
+        }
+
+        sourceTextArea.addEventListener('input', enforceWordLimit);
+
+        // Yeni Mətn Yaratmaq
+        window.createNewTextAndSheets = async function() {
+            const { text, count } = enforceWordLimit();
+            if (!text) {
+                alert("Zəhmət olmasa əvvəlcə mətni daxil edin!");
+                return;
+            }
+
+            const pageCount = Math.max(1, parseInt(document.getElementById('pageCount').value) || 1);
+            const { db, ref, runTransaction } = window.fbDB;
+            const statusEl = document.getElementById('dbStatusText');
+            statusEl.textContent = "Bazaya yazılır...";
+
+            try {
+                let generatedIds = [];
+                let assignedTextCode = "";
+
+                await runTransaction(ref(db, 'imlaApp'), (currentData) => {
+                    if (!currentData) {
+                        currentData = { config: globalData.config, texts: {} };
+                    }
+                    if (!currentData.texts) currentData.texts = {};
+                    if (!currentData.config) currentData.config = globalData.config;
+
+                    const tSeq = currentData.config.nextTextSeq || 1001;
+                    assignedTextCode = currentData.config.textPrefix + String(tSeq).padStart(4, '0');
+                    currentData.config.nextTextSeq = tSeq + 1;
+
+                    const sSeq = currentData.config.nextSheetSeq || 10001;
+                    generatedIds = [];
+                    for (let i = 0; i < pageCount; i++) {
+                        generatedIds.push(currentData.config.sheetPrefix + String(sSeq + i).padStart(5, '0'));
+                    }
+                    currentData.config.nextSheetSeq = sSeq + pageCount;
+
+                    const rangeLabel = pageCount === 1 
+                        ? generatedIds[0] 
+                        : `${generatedIds[0]} .. ${generatedIds[generatedIds.length - 1]} (${pageCount} ədəd)`;
+
+                    currentData.texts[assignedTextCode] = {
+                        textCode: assignedTextCode,
+                        content: text,
+                        wordCount: count,
+                        createdAt: new Date().toLocaleString('az-AZ'),
+                        batches: [{
+                            date: new Date().toLocaleString('az-AZ'),
+                            rangeLabel: rangeLabel,
+                            sheetIds: generatedIds
+                        }],
+                        allSheetIds: [...generatedIds]
+                    };
+
+                    return currentData;
+                });
+
+                const snapshot = await window.fbDB.get(window.fbDB.ref(db, 'imlaApp'));
+                globalData = snapshot.val();
+
+                statusEl.textContent = `Uğurla yadda saxlandı! Mətn kodu: ${assignedTextCode}`;
+                refreshAllUI();
+                renderPrintableSheets(assignedTextCode, text, generatedIds);
+
+            } catch (err) {
+                alert("Xəta baş verdi: " + err.message);
+                statusEl.textContent = "Xəta baş verdi!";
+            }
+        }
+
+        // Əlavə vərəq modalı
+        window.openAddSheetsModal = function(textCode) {
+            const texts = globalData.texts || {};
+            const record = texts[textCode];
+            if (!record) return;
+
+            document.getElementById('targetTextCodeForAdd').value = textCode;
+            document.getElementById('addSheetsModalDesc').innerHTML = 
+                `<b>${record.textCode}</b> kodlu mətn üçün yeni unikal vərəqlər yaradılacaq. Cari vərəq sayı: <b>${record.allSheetIds ? record.allSheetIds.length : 0}</b>.`;
+            document.getElementById('addSheetsModal').classList.add('show');
+        }
+
+        window.closeAddSheetsModal = function() {
+            document.getElementById('addSheetsModal').classList.remove('show');
+        }
+
+        // DÜZƏLİŞ EDİLƏN FUNKSİYA (Əlavə vərəq artırma xətası həll olundu)
+        window.confirmAddExtraSheets = async function() {
+            const textCode = document.getElementById('targetTextCodeForAdd').value;
+            const extraCount = Math.max(1, parseInt(document.getElementById('extraPageCount').value) || 1);
+            
+            const { db, ref, get, update } = window.fbDB;
+            try {
+                // Ən son məlumatı bazadan birbaşa çəkirik
+                const snap = await get(ref(db, 'imlaApp'));
+                if (!snap.exists()) {
+                    alert("Baza tapılmadı!");
+                    return;
+                }
+                
+                let dbData = snap.val();
+                if (!dbData.texts || !dbData.texts[textCode]) {
+                    alert("Mətn bazada tapılmadı!");
+                    return;
+                }
+
+                let record = dbData.texts[textCode];
+                let sSeq = dbData.config.nextSheetSeq || 10001;
+
+                let newIds = [];
+                for (let i = 0; i < extraCount; i++) {
+                    newIds.push(dbData.config.sheetPrefix + String(sSeq + i).padStart(5, '0'));
+                }
+                
+                // Növbəti vərəq nömrəsini artırırıq
+                dbData.config.nextSheetSeq = sSeq + extraCount;
+
+                const rangeLabel = extraCount === 1 
+                    ? newIds[0] 
+                    : `${newIds[0]} .. ${newIds[newIds.length - 1]} (${extraCount} ədəd)`;
+
+                if (!record.batches) record.batches = [];
+                record.batches.push({
+                    date: new Date().toLocaleString('az-AZ'),
+                    rangeLabel: rangeLabel,
+                    sheetIds: newIds
+                });
+
+                if (!record.allSheetIds) record.allSheetIds = [];
+                record.allSheetIds.push(...newIds);
+
+                // Firebase bazasında birbaşa update edirik
+                await update(ref(db, 'imlaApp'), dbData);
+
+                // Local obyekti yeniləyirik
+                globalData = dbData;
+
+                closeAddSheetsModal();
+                refreshAllUI();
+                renderPrintableSheets(textCode, record.content, newIds);
+                alert(`${extraCount} ədəd yeni vərəq uğurla əlavə edildi və çapa hazırlandı!`);
+
+            } catch (err) {
+                alert("Əlavə edilərkən xəta: " + err.message);
+                console.error(err);
+            }
+        }
+
+        window.reprintExistingSheets = function(textCode, batchIndex = -1) {
+            const texts = globalData.texts || {};
+            const record = texts[textCode];
+            if (!record) return;
+
+            let idsToPrint = [];
+            if (batchIndex === -1) {
+                idsToPrint = record.allSheetIds || [];
+            } else {
+                idsToPrint = record.batches[batchIndex].sheetIds || [];
+            }
+
+            if (idsToPrint.length === 0) {
+                alert("Bu partiya üçün vərəq ID tapılmadı!");
+                return;
+            }
+
+            renderPrintableSheets(record.textCode, record.content, idsToPrint);
+            document.getElementById('sheetsHeaderInfo').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // A4 Vərəqləri Render Etmək
+        function renderPrintableSheets(textCode, textContent, sheetIds) {
+            const container = document.getElementById('sheetsContainer');
+            const headerInfo = document.getElementById('sheetsHeaderInfo');
+            const summarySpan = document.getElementById('activePrintSummary');
+
+            container.innerHTML = '';
+            
+            if (!sheetIds || sheetIds.length === 0) {
+                headerInfo.style.display = 'none';
+                return;
+            }
+
+            headerInfo.style.display = 'flex';
+            summarySpan.textContent = `Aktiv Çap Paketi: Mətn Kodu [${textCode}] | Vərəq sayı: ${sheetIds.length} ədəd (${sheetIds[0]} - ${sheetIds[sheetIds.length - 1]})`;
+
+            let rowsHtml = '';
+            for (let r = 0; r < 25; r++) {
+                rowsHtml += '<tr><td></td></tr>';
+            }
+
+            sheetIds.forEach((sheetId, idx) => {
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'a4-page';
+
+                pageDiv.innerHTML = `
+                    <div>
+                        <div class="header-barcodes">
+                            <div class="barcode-box">
+                                <div class="barcode-label">Mətn Kodu</div>
+                                <svg id="bc-text-${idx}"></svg>
+                            </div>
+                            <div class="barcode-box">
+                                <div class="barcode-label">Vərəq ID</div>
+                                <svg id="bc-sheet-${idx}"></svg>
+                            </div>
+                        </div>
+
+                        <table class="text-table">
+                            <tr>
+                                <td>${escapeHtml(textContent)}</td>
+                            </tr>
+                        </table>
+
+                        <div class="instruction-title">Verilmiş mətni səliqəli xətlə aşağıda yazın</div>
+                    </div>
+
+                    <table class="handwriting-table">
+                        ${rowsHtml}
+                    </table>
+                `;
+
+                container.appendChild(pageDiv);
+
+                JsBarcode(`#bc-text-${idx}`, textCode, {
+                    format: "CODE128", width: 1.6, height: 36, displayValue: true, fontSize: 12, margin: 2
+                });
+                JsBarcode(`#bc-sheet-${idx}`, sheetId, {
+                    format: "CODE128", width: 1.6, height: 36, displayValue: true, fontSize: 12, margin: 2
+                });
+            });
+        }
+
+        // İdarə Paneli Cədvəli
+        window.renderAdminTable = function() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const tbody = document.getElementById('adminTableBody');
+            tbody.innerHTML = '';
+
+            const textsObj = globalData.texts || {};
+            const textsArray = Object.values(textsObj);
+
+            document.getElementById('statTotalTexts').textContent = textsArray.length;
+            const totalSheets = textsArray.reduce((sum, t) => sum + (t.allSheetIds ? t.allSheetIds.length : 0), 0);
+            document.getElementById('statTotalSheets').textContent = totalSheets;
+            document.getElementById('statLastSheetId').textContent = globalData.config.nextSheetSeq > 1 
+                ? formatSheetId(globalData.config.nextSheetSeq - 1) 
+                : '-';
+
+            const filtered = textsArray.filter(t => {
+                if (!query) return true;
+                const inCode = t.textCode.toLowerCase().includes(query);
+                const inText = t.content.toLowerCase().includes(query);
+                const inSheets = t.allSheetIds && t.allSheetIds.some(id => id.toLowerCase().includes(query));
+                return inCode || inText || inSheets;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color:#666;">Heç bir məlumat tapılmadı.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const tr = document.createElement('tr');
+                
+                let batchesHtml = (item.batches || []).map((b, bIdx) => `
+                    <div style="margin-bottom:4px;">
+                        <span class="badge">${b.rangeLabel}</span>
+                        <button class="btn btn-outline btn-sm" style="padding:2px 6px; font-size:11px;" title="Bu partiyanı təkrar çap et" onclick="reprintExistingSheets('${item.textCode}', ${bIdx})">🖨️</button>
+                    </div>
+                `).join('');
+
+                tr.innerHTML = `
+                    <td>
+                        <strong style="color:var(--primary); font-size:14px;">${item.textCode}</strong>
+                        <div style="font-size:11px; color:#777; margin-top:4px;">${item.createdAt || ''}</div>
+                    </td>
+                    <td>
+                        <div class="text-preview" title="${escapeHtml(item.content)}">${escapeHtml(item.content)}</div>
+                        <button class="btn btn-outline btn-sm" style="margin-top:6px; font-size:11px;" onclick="alert(${JSON.stringify(item.content)})">Tam mətnə bax</button>
+                    </td>
+                    <td>
+                        <div><b>${item.wordCount}</b> söz</div>
+                        <div style="margin-top:4px; color:var(--success);"><b>${item.allSheetIds ? item.allSheetIds.length : 0}</b> vərəq</div>
+                    </td>
+                    <td>${batchesHtml}</td>
+                    <td>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            <button class="btn btn-primary btn-sm" onclick="openAddSheetsModal('${item.textCode}')">➕ Əlavə Vərəq Artır</button>
+                            <button class="btn btn-success btn-sm" onclick="reprintExistingSheets('${item.textCode}', -1)">🖨️ Hamısını Təkrar Çap Et</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.openSetupModal = function() {
+            document.getElementById('cfgTextPrefix').value = globalData.config.textPrefix;
+            document.getElementById('cfgTextSeq').value = globalData.config.nextTextSeq;
+            document.getElementById('cfgSheetPrefix').value = globalData.config.sheetPrefix;
+            document.getElementById('cfgSheetSeq').value = globalData.config.nextSheetSeq;
+            document.getElementById('setupModal').classList.add('show');
+        }
+
+        window.saveFirebaseConfig = async function() {
+            globalData.config.textPrefix = document.getElementById('cfgTextPrefix').value.trim() || 'MTN-';
+            globalData.config.nextTextSeq = parseInt(document.getElementById('cfgTextSeq').value) || 1001;
+            globalData.config.sheetPrefix = document.getElementById('cfgSheetPrefix').value.trim() || 'VRQ-';
+            globalData.config.nextSheetSeq = parseInt(document.getElementById('cfgSheetSeq').value) || 10001;
+
+            await window.saveFullDataToFirebase();
+            document.getElementById('setupModal').classList.remove('show');
+            refreshAllUI();
+            alert("Konfiqurasiya Firebase-də yeniləndi!");
+        }
+
+        window.switchTab = function(tabName) {
+            document.getElementById('tabBtnNew').classList.remove('active');
+            document.getElementById('tabBtnAdmin').classList.remove('active');
+            document.getElementById('panelNew').classList.remove('active');
+            document.getElementById('panelAdmin').classList.remove('active');
+
+            if (tabName === 'new') {
+                document.getElementById('tabBtnNew').classList.add('active');
+                document.getElementById('panelNew').classList.add('active');
+            } else {
+                document.getElementById('tabBtnAdmin').classList.add('active');
+                document.getElementById('panelAdmin').classList.add('active');
+                renderAdminTable();
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
