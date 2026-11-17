@@ -332,7 +332,26 @@
             <div id="detailsModalContent"></div>
         </div>
     </div>
-
+    <!-- MODAL 4: MƏTNİ REDAKTƏ ETMƏK ÜÇÜN -->
+<div class="modal-backdrop" id="editTextModal">
+    <div class="modal-box" style="max-width: 650px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px;">
+            <h3 style="margin:0;" id="editModalTitle">✏️ Mətni Redaktə Et</h3>
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('editTextModal').classList.remove('show')">✖ Bağla</button>
+        </div>
+        <input type="hidden" id="editTargetTextCode">
+        <div class="form-group">
+            <label>Mətn Məzmunu (Maksimum 180 söz):</label>
+            <textarea id="editSourceText" style="height: 180px;" oninput="checkEditWordCount()"></textarea>
+            <div style="font-size: 13px; color: #555; margin-top: 5px;" id="editWordCounter">Söz sayı: 0 / 180</div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn btn-outline" onclick="document.getElementById('editTextModal').classList.remove('show')">Ləğv et</button>
+            <button class="btn btn-primary" onclick="confirmEditText()">💾 Dəyişiklikləri Yadda Saxla</button>
+        </div>
+    </div>
+</div>
+    
     <script>
         let globalData = {
             config: { textPrefix: 'MTN-', nextTextSeq: 1001, sheetPrefix: 'VRQ-', nextSheetSeq: 10001, padLengthText: 4, padLengthSheet: 5 },
@@ -556,6 +575,85 @@ Bazaya əlavə edilən/yenilənən tələbə sayı: ${addedCount}`;
             reader.readAsText(file, "UTF-8");
         }
 
+
+// Mətni Redaktə Etmək Üçün Modalı Açmaq
+        function openEditTextModal(textCode) {
+            const record = globalData.texts[textCode];
+            if (!record) return;
+
+            document.getElementById('editTargetTextCode').value = textCode;
+            document.getElementById('editModalTitle').textContent = `✏️ ${textCode} — Mətnini Redaktə Et`;
+            const textArea = document.getElementById('editSourceText');
+            textArea.value = record.content;
+            
+            checkEditWordCount();
+            document.getElementById('editTextModal').classList.add('show');
+        }
+
+        // Redaktə zamanı söz sayını tənzimləmək (180 söz limiti)
+        function checkEditWordCount() {
+            const textArea = document.getElementById('editSourceText');
+            const words = textArea.value.trim().split(/\s+/).filter(w => w.length > 0);
+            const counterEl = document.getElementById('editWordCounter');
+
+            if (words.length > 180) {
+                textArea.value = words.slice(0, 180).join(' ');
+                counterEl.textContent = `Söz sayı: 180 / 180 (Mətn kəsildi!)`;
+                counterEl.style.color = 'var(--danger)';
+            } else {
+                counterEl.textContent = `Söz sayı: ${words.length} / 180`;
+                counterEl.style.color = '#555';
+            }
+        }
+
+        // Dəyişiklikləri Bazada Yadda Saxlamaq
+        async function confirmEditText() {
+            const textCode = document.getElementById('editTargetTextCode').value;
+            const newContent = document.getElementById('editSourceText').value.trim();
+            const words = newContent.split(/\s+/).filter(w => w.length > 0);
+
+            if (!newContent) {
+                alert("Mətn boş ola bilməz!");
+                return;
+            }
+
+            if (!globalData.texts[textCode]) return;
+
+            // Bazadakı məlumatları yeniləyirik
+            globalData.texts[textCode].content = newContent;
+            globalData.texts[textCode].wordCount = words.length;
+            globalData.texts[textCode].updatedAt = new Date().toLocaleString('az-AZ');
+
+            await window.saveFullDataToFirebase();
+            document.getElementById('editTextModal').classList.remove('show');
+            refreshAllUI();
+            alert(`✅ ${textCode} kodlu mətn uğurla yeniləndi!`);
+        }
+
+        // Mətnin Tamamilə Silinməsi
+        async function deleteText(textCode) {
+            const record = globalData.texts[textCode];
+            const sheetCount = record && record.allSheetIds ? record.allSheetIds.length : 0;
+
+            if (confirm(`⚠️ Diqqət! "${textCode}" kodlu mətnini və ona aid olan ${sheetCount} ədəd vərəq qeydiyyatını silmək istədiyinizə əminsiniz?\n\nQeyd: Əgər bu vərəqlərdən hər hansı biri tələbələrə paylanıbsa, əlaqəli qeydlərdə problem yarana bilər.`)) {
+                delete globalData.texts[textCode];
+                
+                // Həmçinin bu mətnə aid paylanmış qeydiyyatlar varsa onları da təmizləyə bilərik (istəyə görə)
+                let regs = globalData.registrations || {};
+                for (let sId in regs) {
+                    if (regs[sId].textCode === textCode) {
+                        delete globalData.registrations[sId];
+                    }
+                }
+
+                await window.saveFullDataToFirebase();
+                refreshAllUI();
+                alert(`🗑️ ${textCode} mətn bazadan silindi.`);
+            }
+        }
+
+
+        
         function downloadSampleTxt() {
             const sampleContent = "7ABC123;Məmmədov;Elvin;İlham\n5XYZ890;Əliyeva;Nigar;Kamran\n4KLM456;Həsənov;Rəşad;Tofiq";
             const blob = new Blob([sampleContent], { type: "text/plain;charset=utf-8" });
@@ -672,11 +770,13 @@ Bazaya əlavə edilən/yenilənən tələbə sayı: ${addedCount}`;
                         <div><span class="badge badge-orange">📄 Boş qalıb: ${unusedCount}</span></div>
                     </td>
                     <td>${batches}</td>
-                    <td>
+                   <td>
                         <div style="display:flex; flex-direction:column; gap:5px;">
-                            <button class="btn btn-outline btn-sm" onclick="openTextDetailsModal('${item.textCode}')">📊 Detallı Məlumat & Yazanlar</button>
-                            <button class="btn btn-primary btn-sm" onclick="openAddModal('${item.textCode}')">➕ Əlavə Vərəq Artır</button>
-                            <button class="btn btn-success btn-sm" onclick="reprintSheets('${item.textCode}', -1)">🖨️ Hamısını Təkrar Çap Et</button>
+                            <button class="btn btn-outline btn-sm" onclick="openTextDetailsModal('${item.textCode}')">📊 Detallı Məlumat</button>
+                            <button class="btn btn-warning btn-sm" onclick="openEditTextModal('${item.textCode}')">✏️ Redaktə Et</button>
+                            <button class="btn btn-primary btn-sm" onclick="openAddModal('${item.textCode}')">➕ Vərəq Artır</button>
+                            <button class="btn btn-success btn-sm" onclick="reprintSheets('${item.textCode}', -1)">🖨️ Hamısını Çap Et</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteText('${item.textCode}')">🗑️ Mətni Sil</button>
                         </div>
                     </td>
                 `;
