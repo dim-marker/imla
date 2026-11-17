@@ -25,7 +25,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         window.fbDB = { db, ref, get, set, update, runTransaction };
-        window.initAdminApp();
     </script>
 
     <style>
@@ -34,6 +33,7 @@
             --primary-dark: #1557b0;
             --success: #188038;
             --danger: #d93025;
+            --warning: #f29900;
             --bg: #f0f2f5;
             --card: #ffffff;
             --border: #dadce0;
@@ -58,13 +58,14 @@
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
         textarea { width: 100%; height: 130px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-family: 'Times New Roman', serif; font-size: 15px; box-sizing: border-box; resize: vertical; }
-        input[type="text"], input[type="number"], input[type="password"] { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+        input[type="text"], input[type="number"], input[type="password"], select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; box-sizing: border-box; }
         input[readonly] { background-color: #f8f9fa; color: #5f6368; font-weight: 600; }
 
         .btn { padding: 10px 18px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px; }
         .btn-primary { background-color: var(--primary); color: white; }
         .btn-primary:hover { background-color: var(--primary-dark); }
         .btn-success { background-color: var(--success); color: white; }
+        .btn-warning { background-color: var(--warning); color: #202124; }
         .btn-danger { background-color: var(--danger); color: white; }
         .btn-outline { background: white; border: 1px solid var(--border); color: #3c4043; }
         .btn-sm { padding: 6px 10px; font-size: 12px; }
@@ -127,15 +128,18 @@
                 <h1>Admin İdarəetmə Paneli</h1>
                 <div style="font-size: 13px; color: #5f6368;" id="dbStatus">Baza qoşulur...</div>
             </div>
-            <div><button class="btn btn-danger btn-sm" onclick="adminLogout()">Çıxış</button></div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-outline btn-sm" onclick="loadFirebaseData()">🔄 Bazadan Yenilə</button>
+                <button class="btn btn-danger btn-sm" onclick="adminLogout()">Çıxış</button>
+            </div>
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('new')">➕ Yeni Mətn və Çap</button>
-            <button class="tab-btn" onclick="switchTab('texts')">📊 Mətnlər Bazası</button>
-            <button class="tab-btn" onclick="switchTab('students')">🎓 Tələbələr Bazası</button>
-            <button class="tab-btn" onclick="switchTab('assigned')">📋 Paylanmış Vərəqlər</button>
-            <button class="tab-btn" onclick="switchTab('users')">👮‍♂️ Nəzarətçi Hesabları</button>
+            <button class="tab-btn active" onclick="switchTab('new', this)">➕ Yeni Mətn və Çap</button>
+            <button class="tab-btn" onclick="switchTab('texts', this)">📊 Mətnlər Bazası</button>
+            <button class="tab-btn" onclick="switchTab('students', this)">🎓 Tələbələr Bazası</button>
+            <button class="tab-btn" onclick="switchTab('assigned', this)">📋 Paylanmış Vərəqlər (Düzəliş)</button>
+            <button class="tab-btn" onclick="switchTab('users', this)">👮‍♂️ Nəzarətçi Hesabları</button>
         </div>
 
         <!-- TAB 1: YENİ MƏTN -->
@@ -187,11 +191,12 @@
             </table>
         </div>
 
-        <!-- TAB 4: PAYLANMIŞ VƏRƏQLƏR -->
+        <!-- TAB 4: PAYLANMIŞ VƏRƏQLƏR VƏ ADMİN DÜZƏLİŞİ -->
         <div class="panel" id="panelAssigned">
-            <h3>📋 Tələbələrə Verilmiş Vərəqlər (Nəzarətçi Qeydiyyatları)</h3>
+            <h3>📋 Tələbələrə Verilmiş Vərəqlər (Yalnız Admin Düzəliş Edə Bilər)</h3>
+            <p style="font-size: 13px; color: #555;">Nəzarətçilərin səhvən başqa tələbəyə verdiyi vərəqləri buradan <b>"Tələbəni Dəyiş"</b> düyməsi ilə başqa tələbəyə keçirə və ya <b>"Qeydiyyatı Sil"</b> düyməsi ilə vərəqi yenidən boşa çıxara bilərsiniz.</p>
             <table class="admin-table">
-                <thead><tr><th>Vərəq ID</th><th>Mətn Kodu</th><th>Tələbə (FİN, Ad, Soyad)</th><th>Nəzarətçi</th><th>Tarix</th></tr></thead>
+                <thead><tr><th>Vərəq ID</th><th>Mətn Kodu</th><th>Tələbə (FİN, Ad, Soyad)</th><th>Nəzarətçi</th><th>Tarix</th><th>Admin Düzəlişi</th></tr></thead>
                 <tbody id="assignedTableBody"></tbody>
             </table>
         </div>
@@ -221,7 +226,7 @@
     </div>
     <div class="sheets-container" id="sheetsContainer"></div>
 
-    <!-- MODAL: ƏLAVƏ VƏRƏQ -->
+    <!-- MODAL 1: ƏLAVƏ VƏRƏQ -->
     <div class="modal-backdrop" id="addSheetsModal">
         <div class="modal-box">
             <h3>➕ Əlavə Vərəq Artır</h3>
@@ -231,6 +236,23 @@
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
                 <button class="btn btn-outline" onclick="document.getElementById('addSheetsModal').classList.remove('show')">Ləğv et</button>
                 <button class="btn btn-primary" onclick="confirmAddExtraSheets()">Əlavə Et</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: PAYLANMIŞ VƏRƏQİN TƏLƏBƏSİNİ DƏYİŞMƏK (YALNIZ ADMİN) -->
+    <div class="modal-backdrop" id="reassignModal">
+        <div class="modal-box">
+            <h3>✏️ Vərəq Təyinatını Dəyişdir</h3>
+            <p id="reassignModalDesc" style="font-size: 13px; color: #555;"></p>
+            <input type="hidden" id="reassignSheetId">
+            <div class="form-group">
+                <label>Yeni Tələbə Seçin:</label>
+                <select id="reassignStudentSelect"></select>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn btn-outline" onclick="document.getElementById('reassignModal').classList.remove('show')">Ləğv et</button>
+                <button class="btn btn-primary" onclick="confirmReassignSheet()">Yadda Saxla</button>
             </div>
         </div>
     </div>
@@ -415,12 +437,13 @@
             });
         }
 
+        // Paylanmış vərəqlər və Admin Düzəliş Funksiyaları
         function renderAssignedTable() {
             const tbody = document.getElementById('assignedTableBody');
             tbody.innerHTML = '';
             const regs = Object.values(globalData.registrations || {});
             if (regs.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Hələ heç bir vərəq tələbəyə verilməyib.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Hələ heç bir vərəq tələbəyə verilməyib.</td></tr>`;
                 return;
             }
             regs.reverse().forEach(r => {
@@ -430,8 +453,67 @@
                     <td><b>${r.studentName}</b></td>
                     <td>${r.assignedBy || 'Bilinmir'}</td>
                     <td>${r.assignedAt}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="openReassignModal('${r.sheetId}')">✏️ Tələbəni Dəyiş</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteRegistration('${r.sheetId}')">🗑️ Sil</button>
+                    </td>
                 </tr>`;
             });
+        }
+
+        function openReassignModal(sheetId) {
+            const reg = globalData.registrations[sheetId];
+            if (!reg) return;
+
+            document.getElementById('reassignSheetId').value = sheetId;
+            document.getElementById('reassignModalDesc').innerHTML = `<b>${sheetId}</b> kodlu vərəq hazırda <b>${reg.studentName}</b> adına qeydiyyatdadır. Yeni tələbə seçin:`;
+
+            const select = document.getElementById('reassignStudentSelect');
+            select.innerHTML = '<option value="">-- Yeni tələbə seçin --</option>';
+            const students = globalData.students || {};
+            for (let fin in students) {
+                const s = students[fin];
+                const opt = document.createElement('option');
+                opt.value = fin;
+                opt.textContent = `${s.fin} - ${s.soyad} ${s.ad} ${s.ataAdi || ''}`;
+                if (fin === reg.studentFin) opt.selected = true;
+                select.appendChild(opt);
+            }
+
+            document.getElementById('reassignModal').classList.add('show');
+        }
+
+        async function confirmReassignSheet() {
+            const sheetId = document.getElementById('reassignSheetId').value;
+            const newFin = document.getElementById('reassignStudentSelect').value;
+
+            if (!newFin) {
+                alert("Zəhmət olmasa tələbə seçin!");
+                return;
+            }
+
+            const student = globalData.students[newFin];
+            const newFullName = `${student.soyad} ${student.ad} ${student.ataAdi || ''} (FİN: ${newFin})`.trim();
+
+            globalData.registrations[sheetId].studentFin = newFin;
+            globalData.registrations[sheetId].studentName = newFullName;
+            globalData.registrations[sheetId].assignedBy = "admin (Düzəliş)";
+            globalData.registrations[sheetId].assignedAt = new Date().toLocaleString('az-AZ');
+
+            await window.saveFullDataToFirebase();
+            document.getElementById('reassignModal').classList.remove('show');
+            renderAssignedTable();
+            alert(`${sheetId} kodlu vərəqin tələbəsi uğurla yeniləndi!`);
+        }
+
+        async function deleteRegistration(sheetId) {
+            if (confirm(`"${sheetId}" kodlu vərəqin qeydiyyatını silmək istədiyinizə əminsiniz?
+Silindikdən sonra bu vərəq yenidən skan edilərək başqa tələbəyə verilə biləcək.`)) {
+                delete globalData.registrations[sheetId];
+                await window.saveFullDataToFirebase();
+                renderAssignedTable();
+                alert("Qeydiyyat silindi! Vərəq yenidən istifadəyə açıqdır.");
+            }
         }
 
         function renderTextsTable() {
@@ -573,14 +655,16 @@
             });
         }
 
-        function switchTab(name) {
+        function switchTab(name, btnEl) {
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            if (name === 'new') { document.getElementById('panelNew').classList.add('active'); event.target.classList.add('active'); }
-            else if (name === 'texts') { document.getElementById('panelTexts').classList.add('active'); event.target.classList.add('active'); }
-            else if (name === 'students') { document.getElementById('panelStudents').classList.add('active'); event.target.classList.add('active'); renderStudentsTable(); }
-            else if (name === 'assigned') { document.getElementById('panelAssigned').classList.add('active'); event.target.classList.add('active'); renderAssignedTable(); }
-            else if (name === 'users') { document.getElementById('panelUsers').classList.add('active'); event.target.classList.add('active'); renderUsersTable(); }
+            if (btnEl) btnEl.classList.add('active');
+            
+            if (name === 'new') { document.getElementById('panelNew').classList.add('active'); }
+            else if (name === 'texts') { document.getElementById('panelTexts').classList.add('active'); renderTextsTable(); }
+            else if (name === 'students') { document.getElementById('panelStudents').classList.add('active'); renderStudentsTable(); }
+            else if (name === 'assigned') { document.getElementById('panelAssigned').classList.add('active'); renderAssignedTable(); }
+            else if (name === 'users') { document.getElementById('panelUsers').classList.add('active'); renderUsersTable(); }
         }
     </script>
 </body>
