@@ -376,6 +376,9 @@
         function adminLogout() {
             document.getElementById('adminMainContainer').classList.add('hidden');
             document.getElementById('adminLoginBox').classList.remove('hidden');
+
+            document.getElementById('sheetsHeaderInfo').classList.add('hidden');
+            document.getElementById('sheetsContainer').innerHTML = '';
         }
 
         async function loadFirebaseData() {
