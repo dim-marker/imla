@@ -312,9 +312,23 @@ Onun düzəldilməsi yalnız Admin panelində mümkündür!`);
                 return;
             }
 
+            // === BURADAN ƏLAVƏ EDİRİNİZ ===
+            const allRegs = Object.values(data.registrations || {});
+            const alreadyWritten = allRegs.find(r => r.studentFin === fin && r.textCode === foundTextCode);
+
+            if (alreadyWritten) {
+                const warningMsg = `⚠️ <b>XƏBƏRDARLIQ!</b> Bu tələbə artıq <b>${foundTextCode}</b> imla mövzusuna aid imla yazıb! (Verilmiş vərəq: ${alreadyWritten.sheetId})`;
+                showWarning(warningMsg);
+                alert(`XƏBƏRDARLIQ!\n\nBu tələbə artıq "${foundTextCode}" mövzusuna aid imla yazıb!\nBaşqa vərəq verilə bilməz.`);
+                return;
+            }
+            // ============================
+
             const student = data.students[fin];
             const studentFullName = `${student.soyad} ${student.ad} ${student.ataAdi || ''} (FİN: ${fin})`.trim();
 
+
+            
             data.registrations[sheetId] = {
                 sheetId: sheetId,
                 textCode: foundTextCode,
