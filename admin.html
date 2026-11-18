@@ -159,6 +159,7 @@
             <button class="tab-btn active" onclick="switchTab('new', this)">➕ Yeni Mətn və Çap</button>
             <button class="tab-btn" onclick="switchTab('texts', this)">📊 Mətnlər Bazası (Axtarış & Statistika)</button>
             <button class="tab-btn" onclick="switchTab('students', this)">🎓 Tələbələr Bazası (Tək & TXT Toplu)</button>
+            <button class="tab-btn" onclick="switchTab('schedule', this)">📅 Gəliş Qrafiki & Davamiyyət</button>
             <button class="tab-btn" onclick="switchTab('assigned', this)">📋 Paylanmış Vərəqlər (Düzəliş)</button>
             <button class="tab-btn" onclick="switchTab('users', this)">👮‍♂️ Nəzarətçi Hesabları</button>
         </div>
@@ -283,7 +284,46 @@
             </table>
         </div>
     </div>
+    <!-- TAB 6: GƏLİŞ QRAFİKİ VƏ DAVAMİYYƏT -->
+        <div class="panel" id="panelSchedule">
+            <h3>📅 Tələbələrin Gəliş Qrafiki və Davamiyyət (Növbəti Günlər Üzrə)</h3>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+                <h4>Tələbəni Qrafikə Əlavə Et (Hansı gün gəlməlidir?)</h4>
+                <div style="display: grid; grid-template-columns: 2fr 1.5fr auto; gap: 10px; align-items: flex-end;">
+                    <div>
+                        <label>Tələbə Seçin:</label>
+                        <select id="schStudentSelect"></select>
+                    </div>
+                    <div>
+                        <label>Gəlməli Olduğu Tarix:</label>
+                        <input type="date" id="schTargetDate">
+                    </div>
+                    <button class="btn btn-primary" onclick="addScheduleEntry()">➕ Qrafikə Yaz</button>
+                </div>
+            </div>
 
+            <div class="search-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; gap: 10px; flex: 1; min-width: 280px;">
+                    <input type="date" id="filterScheduleDate" onchange="renderScheduleTable()" style="max-width: 200px;">
+                    <input type="text" id="scheduleSearchInput" placeholder="🔍 Tələbə ad və ya FİN-ə görə axtar..." oninput="renderScheduleTable()">
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="document.getElementById('filterScheduleDate').value=''; document.getElementById('scheduleSearchInput').value=''; renderScheduleTable();">Filtrləri Təmizlə</button>
+            </div>
+
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th style="width: 130px;">Tarix</th>
+                        <th>Tələbə (FİN, Soyad, Ad)</th>
+                        <th style="width: 150px;">Gəlibmi? (Davamiyyət)</th>
+                        <th style="width: 120px;">Əməliyyat</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleTableBody"></tbody>
+            </table>
+        </div>
     <!-- ÇAP ÜÇÜN HİSSƏ -->
     <div class="sheets-header-info hidden" id="sheetsHeaderInfo">
         <span id="activePrintSummary">Aktiv Çap Paketi</span>
@@ -414,6 +454,145 @@
             renderAssignedTable();
             renderUsersTable();
         }
+        // 1. Qrafik açılan zaman tələbə siyahısını dropdown-a doldurmaq və tarixi bugünkü/sabahkı günə tənzimləmək
+        function initScheduleTab() {
+            const select = document.getElementById('schStudentSelect');
+            select.innerHTML = '<option value="">-- Tələbə seçin --</option>';
+            const students = globalData.students || {};
+            for (let fin in students) {
+                const s = students[fin];
+                const opt = document.createElement('option');
+                opt.value = fin;
+                opt.textContent = `${s.fin} - ${s.soyad} ${s.ad} ${s.ataAdi || ''}`;
+                select.appendChild(opt);
+            }
+
+            // Standart olaraq tarixi bugünkü günə qoyaq
+            const today = new Date().toISOString().split('T')[0];
+            if (!document.getElementById('schTargetDate').value) {
+                document.getElementById('schTargetDate').value = today;
+            }
+            renderScheduleTable();
+        }
+
+        // 2. Qrafikə yeni tələbə əlavə etmək (Növbəti günlər və ya müəyyən gün üçün)
+        async function addScheduleEntry() {
+            const fin = document.getElementById('schStudentSelect').value;
+            const date = document.getElementById('schTargetDate').value;
+
+            if (!fin || !date) {
+                alert("Zəhmət olmasa tələbə və tarixi seçin!");
+                return;
+            }
+
+            if (!globalData.schedules) globalData.schedules = {};
+
+            // Unikal ID yaradaq: Tarix_FIN (məsələn: 2026-06-07_7ABC123)
+            const scheduleId = `${date}_${fin}`;
+
+            if (globalData.schedules[scheduleId]) {
+                alert("Bu tələbə həmin tarix üçün artıq qrafikə əlavə edilib!");
+                return;
+            }
+
+            const student = globalData.students[fin];
+            const studentFullName = `${student.soyad} ${student.ad} ${student.ataAdi || ''} (FİN: ${fin})`.trim();
+
+            globalData.schedules[scheduleId] = {
+                id: scheduleId,
+                date: date,
+                studentFin: fin,
+                studentName: studentFullName,
+                attended: false, // Gəlib ya yox
+                markedAt: null
+            };
+
+            await window.saveFullDataToFirebase();
+            renderScheduleTable();
+            alert(`✅ Tələbə ${date tarixinə uğurla əlavə edildi!}`);
+        }
+
+        // 3. Qrafik cədvəlini və davamiyyəti göstərmək (Axtarış və tarix filt சந்திர ilə)
+        function renderScheduleTable() {
+            const tbody = document.getElementById('scheduleTableBody');
+            const dateFilter = document.getElementById('filterScheduleDate')?.value || '';
+            const query = (document.getElementById('scheduleSearchInput')?.value || '').trim().toLowerCase();
+            tbody.innerHTML = '';
+
+            const schedules = Object.values(globalData.schedules || {});
+            
+            const filtered = schedules.filter(item => {
+                let matchDate = dateFilter ? item.date === dateFilter : true;
+                let matchQuery = query ? item.studentName.toLowerCase().includes(query) : true;
+                return matchDate && matchQuery;
+            });
+
+            // Tarixə görə sıralayaq (yeni tarixlər öndə)
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#666; padding: 20px;">Qrafik üzrə qeyd tapılmadı.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach((item, idx) => {
+                const statusBadge = item.attended 
+                    ? `<span class="badge badge-green" style="font-size:12px; padding:5px 10px;">Gəlib ✅</span>` 
+                    : `<span class="badge badge-orange" style="font-size:12px; padding:5px 10px;">Gözlənilir 🕒</span>`;
+
+                const toggleBtnText = item.attended ? "Gəlmədi Et ❌" : "Gəldi Et ✅";
+                const toggleBtnClass = item.attended ? "btn btn-outline btn-sm" : "btn btn-success btn-sm";
+
+                tbody.innerHTML += `<tr>
+                    <td>${idx + 1}</td>
+                    <td><b>${item.date}</b></td>
+                    <td>${item.studentName}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <div style="display:flex; gap:5px;">
+                            <button class="${toggleBtnClass}" onclick="toggleAttendance('${item.id}')">${toggleBtnText}</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteScheduleEntry('${item.id}')">Sil</button>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        // 4. Davamiyyət statusunu dəyişmək (Gəldi / Gəlmədi)
+        async function toggleAttendance(scheduleId) {
+            if (!globalData.schedules || !globalData.schedules[scheduleId]) return;
+
+            const currentStatus = globalData.schedules[scheduleId].attended;
+            globalData.schedules[scheduleId].attended = !currentStatus;
+            globalData.schedules[scheduleId].markedAt = new Date().toLocaleString('az-AZ');
+
+            await window.saveFullDataToFirebase();
+            renderScheduleTable();
+        }
+
+        // 5. Qrafik qeydini silmək
+        async function deleteScheduleEntry(scheduleId) {
+            if (confirm("Bu tələbənin həmin gün üçün qrafik qeydini silmək istədiyinizə əminsiniz?")) {
+                delete globalData.schedules[scheduleId];
+                await window.saveFullDataToFirebase();
+                renderScheduleTable();
+            }
+        }
+
+
+        function switchTab(name, btnEl) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+            
+            if (name === 'new') { document.getElementById('panelNew').classList.add('active'); }
+            else if (name === 'texts') { document.getElementById('panelTexts').classList.add('active'); renderTextsTable(); }
+            else if (name === 'students') { document.getElementById('panelStudents').classList.add('active'); renderStudentsTable(); }
+            else if (name === 'assigned') { document.getElementById('panelAssigned').classList.add('active'); renderAssignedTable(); }
+            else if (name === 'users') { document.getElementById('panelUsers').classList.add('active'); renderUsersTable(); }
+            else if (name === 'schedule') { document.getElementById('panelSchedule').classList.add('active'); initScheduleTab(); } // 👈 Bunu əlavə edirik
+        }
+
 
         function formatTextCode(seq) { return globalData.config.textPrefix + String(seq).padStart(4, '0'); }
         function formatSheetId(seq) { return globalData.config.sheetPrefix + String(seq).padStart(5, '0'); }
