@@ -593,6 +593,9 @@
             else if (name === 'schedule') { document.getElementById('panelSchedule').classList.add('active'); initScheduleTab(); } // 👈 Bunu əlavə edirik
         }
 
+            
+        }
+
 
         function formatTextCode(seq) { return globalData.config.textPrefix + String(seq).padStart(4, '0'); }
         function formatSheetId(seq) { return globalData.config.sheetPrefix + String(seq).padStart(5, '0'); }
@@ -1220,17 +1223,7 @@ Bazaya əlavə edilən/yenilənən tələbə sayı: ${addedCount}`;
             });
         }
 
-        function switchTab(name, btnEl) {
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            if (btnEl) btnEl.classList.add('active');
-            
-            if (name === 'new') { document.getElementById('panelNew').classList.add('active'); }
-            else if (name === 'texts') { document.getElementById('panelTexts').classList.add('active'); renderTextsTable(); }
-            else if (name === 'students') { document.getElementById('panelStudents').classList.add('active'); renderStudentsTable(); }
-            else if (name === 'assigned') { document.getElementById('panelAssigned').classList.add('active'); renderAssignedTable(); }
-            else if (name === 'users') { document.getElementById('panelUsers').classList.add('active'); renderUsersTable(); }
-        }
+       
 
         function escapeHtml(text) {
             const div = document.createElement('div');
